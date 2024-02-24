@@ -1,4 +1,5 @@
 import numpy as np
+import random
 
 class TabularQLearner:
 
@@ -21,7 +22,7 @@ class TabularQLearner:
         self.q_table = np.zeros(states, actions)
 
 
-    def train (self, s, r, old_s = None, old_a = None, eval_function = None,
+    def train (self, s, r, eval_function = None,
                select_function = None):
 
         # Receive new state s and new reward r. Update Q-table and return selected action.
@@ -29,6 +30,21 @@ class TabularQLearner:
         # Consider: The Q-update requires a complete <s, a, s', r> tuple.
         # In this part of the project, the optional parameters are not used.
         # How will you know the previous state and action?
+        # Answer: Look at the Table
+
+        if self.exploration == 'eps' and random.random() < self.epsilon:
+            #Performing exploration
+            a = random.randint(0, self.actions - 1)
+            
+            #Perform epsilon decay
+            self.epsilon *= self.epsilon_decay
+        
+        else:
+            #Peforming exploitation
+            a = np.argmax(self.q_table[s]) #Select the action with the highest Q value from state S
+
+        #Update Q table
+        self.q_table[s, a] += self.alpha * (r + self.gamma * np.max(self.q_table[s]) - self.q_table[s, a])
 
         return a
 
