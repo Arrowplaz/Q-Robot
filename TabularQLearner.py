@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import pandas as pd
 
 class TabularQLearner:
 
@@ -12,17 +13,20 @@ class TabularQLearner:
         self.actions = actions
         self.alpha = alpha
         self.gamma = gamma
-        self.exploration = exploration
+        self.exploartion = exploration
         self.epsilon = epsilon
         self.epsilon_decay = epsilon_decay
         self.dyna = dyna
 
-        #Create the q table as a table of zeros with states and each action possible
-        #Policy is decided by going to a state and choosing the action with the highest Q value
-        self.q_table = np.zeros(states, actions)
+        #Create the Q Table where each State(row) has a q value for each action(column)
+        self.Q_table = pd.DataFrame(np.random.uniform(0,0.05, size=(states, actions)))
+        #print(self.Q_table.to_string())
 
+        #Holders for the most recent s and a pair
+        self.old_s = None
+        self.old_a = None
 
-    def train (self, s, r, eval_function = None,
+    def train (self, s, r, old_s = None, old_a = None, eval_function = None,
                select_function = None):
 
         # Receive new state s and new reward r. Update Q-table and return selected action.
@@ -30,22 +34,26 @@ class TabularQLearner:
         # Consider: The Q-update requires a complete <s, a, s', r> tuple.
         # In this part of the project, the optional parameters are not used.
         # How will you know the previous state and action?
-        # Answer: Look at the Table
 
-        if self.exploration == 'eps' and random.random() < self.epsilon:
-            #Performing exploration
-            a = random.randint(0, self.actions - 1)
-            
-            #Perform epsilon decay
-            self.epsilon *= self.epsilon_decay
+        #I'm being given the <s', r> I need to figure out <s, a>
+        #I could use instance variables to hold the most recent s and A
         
+        #Decide whether to explore or exploit
+        if select_function == "eps" and round(random.uniform(0.00, 1.00), 2) < self.epsilon:
+            #Perform exploration
+            a = random.randint(0, 3)
+            self.epsilon *= self.epsilon_decay #Perform decay
         else:
-            #Peforming exploitation
-            a = np.argmax(self.q_table[s]) #Select the action with the highest Q value from state S
+            #Perform exploit
+            a = self.Q_table.loc[s].idxmax()
 
-        #Update Q table
-        self.q_table[s, a] += self.alpha * (r + self.gamma * np.max(self.q_table[s]) - self.q_table[s, a])
+        #Update Q Table
+        part_one = (1 - self.alpha) * self.Q_table.loc[self.old_s, self.old_a]
+        part_two = r + (self.gamma * (self.Q_table.iloc[s].max()))
+        self.Q_table.loc[self.old_s, self.old_a] = part_one + (self.alpha * part_two)
 
+        self.old_s = s 
+        self.old_a = a
         return a
 
 
@@ -58,6 +66,19 @@ class TabularQLearner:
         #
         # You sometimes will, and sometimes won't, want to allow random actions...
 
+        #If random actions is allowed and we select a number within the E threshhold, perform exploartion
+        if allow_random and round(random.uniform(0.00, 1.00), 2) < self.epsilon:
+            a = random.randint(0, 3)
+            self.epsilon *= self.epsilon_decay #Perform decay
+            #print("rand")
+        else:
+            #Peform exploitation, where we simply select the action with the highest Q value
+            a = self.Q_table.loc[s].idxmax()
+
+        #Assign the <s,a> pair to holders for later use
+        self.old_s = s 
+        self.old_a = a
+        #print(s, a)
         return a
 
 
@@ -65,5 +86,5 @@ class TabularQLearner:
 
         # Return the max Q value for every state as a 1-D numpy array.
         # This is needed for robot_env to draw its plots.
-
-        return None
+        max_values = self.Q_table.max(axis=1)
+        return np.array(max_values)
