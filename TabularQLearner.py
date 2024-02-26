@@ -17,6 +17,9 @@ class TabularQLearner:
         self.epsilon = epsilon
         self.epsilon_decay = epsilon_decay
         self.dyna = dyna
+        
+        #Create an array to hold every experience tuple; used for dyna
+        self.experience_history = []
 
         #Create the Q Table where each State(row) has a q value for each action(column)
         self.Q_table = pd.DataFrame(np.random.uniform(0,0.05, size=(states, actions)))
@@ -39,7 +42,7 @@ class TabularQLearner:
         #I could use instance variables to hold the most recent s and A
         
         #Decide whether to explore or exploit
-        if select_function == "eps" and round(random.uniform(0.00, 1.00), 2) < self.epsilon:
+        if select_function == "eps" and round(np.random.uniform(0.00, 1.00), 2) < self.epsilon:
             #Perform exploration
             a = random.randint(0, 3)
             self.epsilon *= self.epsilon_decay #Perform decay
@@ -51,7 +54,19 @@ class TabularQLearner:
         part_one = (1 - self.alpha) * self.Q_table.loc[self.old_s, self.old_a]
         part_two = r + (self.gamma * (self.Q_table.iloc[s].max()))
         self.Q_table.loc[self.old_s, self.old_a] = part_one + (self.alpha * part_two)
+            
+        #Apped the experience tuple to the history
+        self.experience_history.append((self.old_s, self.old_a, s, r))
 
+        #Perform hallucination
+        for _ in range(self.dyna):
+            rand_index = np.random.randint(low=0, high=len(self.experience_history))
+            rand_experience = self.experience_history[rand_index]
+            hal_part_one = (1 - self.alpha) * self.Q_table.loc[rand_experience[0], rand_experience[1]]
+            hal_part_two = rand_experience[3] + (self.gamma * (self.Q_table.iloc[rand_experience[2]].max()))
+            self.Q_table.loc[rand_experience[0], rand_experience[1]] = hal_part_one + (self.alpha * hal_part_two)
+
+        #Replace the old with the new
         self.old_s = s 
         self.old_a = a
         return a
